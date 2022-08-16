@@ -56,9 +56,9 @@ namespace NPOI.SS.Formula.Function
 
         public static FunctionMetadataRegistry CreateRegistry()
         {
+            var assembly = typeof(FunctionMetadataReader).Assembly;
             var resourceName = METADATA_FILE_NAME;
 #if DEBUG
-            var assembly = typeof(FunctionMetadataReader).Assembly;
             resourceName = assembly.GetManifestResourceNames()
                                        .FirstOrDefault(n => n.EndsWith("functionMetadata.txt"));
 #endif
