@@ -25,6 +25,7 @@ namespace NPOI.SS.Formula.Function
     using NPOI.SS.Formula.PTG;
     using System.Globalization;
     using System.Text;
+    using System.Linq;
 
     /**
      * Converts the text meta-data file into a <c>FunctionMetadataRegistry</c>
@@ -55,7 +56,14 @@ namespace NPOI.SS.Formula.Function
 
         public static FunctionMetadataRegistry CreateRegistry()
         {
-            using (StreamReader br = new StreamReader (typeof (FunctionMetadataReader).Assembly.GetManifestResourceStream (METADATA_FILE_NAME)))
+            var resourceName = METADATA_FILE_NAME;
+#if DEBUG
+            var assembly = typeof(FunctionMetadataReader).Assembly;
+            resourceName = assembly.GetManifestResourceNames()
+                                       .FirstOrDefault(n => n.EndsWith("functionMetadata.txt"));
+#endif
+
+            using (StreamReader br = new StreamReader (assembly.GetManifestResourceStream(resourceName)))
             {
 
                 FunctionDataBuilder fdb = new FunctionDataBuilder(400);
