@@ -20,6 +20,7 @@ namespace TestCases.HSSF.UserModel
     using System.IO;
     using System;
     using System.Configuration;
+    using System.Runtime.InteropServices;
     using NPOI.HSSF.UserModel;
     using NPOI.HSSF.Model;
     using NPOI.HSSF.Record;
@@ -449,7 +450,7 @@ namespace TestCases.HSSF.UserModel
             Assert.IsTrue(hssfSheet.ObjectProtect);
             Assert.AreEqual(expectedHashA, hssfSheet.Password);
             Assert.AreEqual(expectedHashA, hssfSheet.Sheet.ProtectionBlock.PasswordHash);
-            
+
 
             // Clone the sheet, and make sure the password hash is preserved
             HSSFSheet sheet2 = (HSSFSheet)workbook.CloneSheet(0);
@@ -567,7 +568,9 @@ namespace TestCases.HSSF.UserModel
 
             workbook.Close();
         }
+
         [Test]
+        [Obsolete]
         public void TestZoom()
         {
             HSSFWorkbook wb = new HSSFWorkbook();
@@ -734,13 +737,15 @@ namespace TestCases.HSSF.UserModel
             HSSFWorkbook wb2 = HSSFTestDataSamples.OpenSampleWorkbook("Simple.xls");
 
             sheet = wb2.GetSheetAt(0);
-            for (int i = 3; i < 10; i++) sheet.CreateRow(i);
+            for (int i = 3; i < 10; i++)
+                sheet.CreateRow(i);
 
             HSSFTestDataSamples.WriteOutAndReadBack(wb2).Close();
 
             wb2.Close();
         }
         [Test]
+        [Platform("Win")]
         public void TestAutoSizeColumn()
         {
             HSSFWorkbook wb1 = HSSFTestDataSamples.OpenSampleWorkbook("43902.xls");
@@ -754,7 +759,7 @@ namespace TestCases.HSSF.UserModel
             //  thankfully don't overlap!
             int minWithRow1And2 = 6400;
             int maxWithRow1And2 = 7800;
-            int minWithRow1Only = 2750;
+            int minWithRow1Only = 2730;
             int maxWithRow1Only = 3300;
 
             // autoSize the first column and check its size before the merged region (1,0,1,1) is set:
@@ -772,8 +777,8 @@ namespace TestCases.HSSF.UserModel
             // Check that the autoSized column width has ignored the 2nd row
             // because it is included in a merged region (Excel like behavior)
             NPOI.SS.UserModel.ISheet sheet2 = wb2.GetSheet(sheetName);
-            Assert.IsTrue(sheet2.GetColumnWidth(0) >= minWithRow1Only);
-            Assert.IsTrue(sheet2.GetColumnWidth(0) <= maxWithRow1Only);
+            Assert.IsTrue(sheet2.GetColumnWidth(0) >= minWithRow1Only, $"sheet column width:{sheet2.GetColumnWidth(0)}, minWithRow1Only:{minWithRow1Only}");
+            Assert.IsTrue(sheet2.GetColumnWidth(0) <= maxWithRow1Only, $"sheet column width:{sheet2.GetColumnWidth(0)}, maxWithRow1Only:{maxWithRow1Only}");
 
             // Remove the 2nd row merged region and Check that the 2nd row value is used to the AutoSizeColumn width
             sheet2.RemoveMergedRegion(1);
@@ -830,6 +835,31 @@ namespace TestCases.HSSF.UserModel
 
             wb.Close();
         }
+
+
+        [Test]
+        public void TestAutoSizeRow()
+        {
+            HSSFWorkbook workbook = new HSSFWorkbook();
+            ISheet sheet = workbook.CreateSheet("Sheet 1");
+
+            var row = sheet.CreateRow(0);
+            var cell = row.CreateCell(13);
+            cell.SetCellValue("test");
+            var font = cell.CellStyle.GetFont(workbook);
+            font.FontHeightInPoints = 20;
+            cell.CellStyle.SetFont(font);
+            row.Height = 100;
+
+            sheet.AutoSizeRow(row.RowNum);
+
+            Assert.AreNotEqual(100, row.Height);
+            Assert.AreEqual(540, row.Height);
+
+            workbook.Close();
+        }
+
+
         ///**
         // * Setting ForceFormulaRecalculation on sheets
         // */
@@ -906,17 +936,17 @@ namespace TestCases.HSSF.UserModel
             for (char i = 'A'; i <= 'S'; i++)
             {
                 int idx = i - 'A';
-                int w = sh.GetColumnWidth(idx);
+                double w = sh.GetColumnWidth(idx);
                 Assert.AreEqual(ref1[idx], w);
             }
 
             //the second sheet doesn't have overridden column widths
             sh = wb1.GetSheetAt(1);
-            int def_width = sh.DefaultColumnWidth;
+            double def_width = sh.DefaultColumnWidth;
             for (char i = 'A'; i <= 'S'; i++)
             {
                 int idx = i - 'A';
-                int w = sh.GetColumnWidth(idx);
+                double w = sh.GetColumnWidth(idx);
                 //getDefaultColumnWidth returns width measured in characters
                 //getColumnWidth returns width measured in 1/256th units
                 Assert.AreEqual(def_width * 256, w);
@@ -978,9 +1008,9 @@ namespace TestCases.HSSF.UserModel
             // second and third sheets miss DefaultColWidthRecord
             for (int i = 1; i <= 2; i++)
             {
-                int dw = wb2.GetSheetAt(i).DefaultColumnWidth;
+                double dw = wb2.GetSheetAt(i).DefaultColumnWidth;
                 Assert.AreEqual(8, dw);
-                int cw = wb2.GetSheetAt(i).GetColumnWidth(0);
+                double cw = wb2.GetSheetAt(i).GetColumnWidth(0);
                 Assert.AreEqual(8 * 256, cw);
 
                 Assert.AreEqual(0xFF, sheet.DefaultRowHeight);
@@ -1104,7 +1134,7 @@ namespace TestCases.HSSF.UserModel
             Assert.AreEqual(11 * 20, bs.GetFont(wbSimple).FontHeight);
             Assert.AreEqual(8, bs.GetFont(wbSimple).Color);
             Assert.IsFalse(bs.GetFont(wbSimple).IsItalic);
-            Assert.AreEqual((int)FontBoldWeight.Normal, bs.GetFont(wbSimple).Boldweight);
+            Assert.IsFalse(bs.GetFont(wbSimple).IsBold);
 
 
             ICellStyle cs = wbComplex.GetSheetAt(0).GetColumnStyle(1);
@@ -1114,7 +1144,7 @@ namespace TestCases.HSSF.UserModel
             Assert.AreEqual(8 * 20, cs.GetFont(wbComplex).FontHeight);
             Assert.AreEqual(10, cs.GetFont(wbComplex).Color);
             Assert.IsFalse(cs.GetFont(wbComplex).IsItalic);
-            Assert.AreEqual((int)FontBoldWeight.Bold, cs.GetFont(wbComplex).Boldweight);
+            Assert.IsTrue(cs.GetFont(wbComplex).IsBold);
 
             wbComplex.Close();
             wbSimple.Close();

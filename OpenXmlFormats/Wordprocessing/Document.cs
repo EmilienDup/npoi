@@ -401,13 +401,13 @@ namespace NPOI.OpenXmlFormats.Wordprocessing
             }
             if (this.sectPr != null)
                 this.sectPr.Write(sw, "sectPr");
-            sw.Write(string.Format("</w:{0}>", nodeName));
+            sw.WriteEndW(nodeName);
         }
 
-        public void AddNewSectPr()
+        public CT_SectPr AddNewSectPr()
         {
             this.sectPrField = new CT_SectPr();
-            //return this.sectPrField;
+            return this.sectPrField;
         }
 
         public bool IsSetSectPr()

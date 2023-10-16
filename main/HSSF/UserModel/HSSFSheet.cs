@@ -35,6 +35,7 @@ namespace NPOI.HSSF.UserModel
     using NPOI.Util;
     using NPOI.SS.UserModel.Helpers;
     using NPOI.HSSF.UserModel.helpers;
+    using SixLabors.Fonts;
 
 
 
@@ -151,6 +152,20 @@ namespace NPOI.HSSF.UserModel
         {
             return SheetUtil.CopyRow(this, sourceIndex, targetIndex);
         }
+
+        /// <summary>
+        /// Copies comment from one cell to another
+        /// </summary>
+        /// <param name="sourceCell">Cell with a comment to copy</param>
+        /// <param name="targetCell">Cell to paste the comment to</param>
+        /// <returns>Copied comment</returns>
+        public IComment CopyComment(ICell sourceCell, ICell targetCell)
+        {
+            targetCell.CellComment = sourceCell.CellComment;
+
+            return targetCell.CellComment;
+        }
+
         /// <summary>
         /// used internally to Set the properties given a Sheet object
         /// </summary>
@@ -559,7 +574,7 @@ namespace NPOI.HSSF.UserModel
         /// </summary>
         /// <param name="column">the column to Set (0-based)</param>
         /// <param name="width">the width in Units of 1/256th of a Char width</param>
-        public void SetColumnWidth(int column, int width)
+        public void SetColumnWidth(int column, double width)
         {
             _sheet.SetColumnWidth(column, width);
         }
@@ -569,16 +584,16 @@ namespace NPOI.HSSF.UserModel
         /// </summary>
         /// <param name="column">the column to Set (0-based)</param>
         /// <returns>the width in Units of 1/256th of a Char width</returns>
-        public int GetColumnWidth(int column)
+        public double GetColumnWidth(int column)
         {
             return _sheet.GetColumnWidth(column);
         }
 
-        public float GetColumnWidthInPixels(int column)
+        public double GetColumnWidthInPixels(int column)
         {
-            int cw = GetColumnWidth(column);
-            int def = DefaultColumnWidth * 256;
-            float px = (cw == def ? PX_DEFAULT : PX_MODIFIED);
+            double cw = GetColumnWidth(column);
+            double def = DefaultColumnWidth * 256;
+            double px = (cw == def ? PX_DEFAULT : PX_MODIFIED);
 
             return cw / px;
         }
@@ -587,7 +602,7 @@ namespace NPOI.HSSF.UserModel
         /// Gets or sets the default width of the column.
         /// </summary>
         /// <value>The default width of the column.</value>
-        public int DefaultColumnWidth
+        public double DefaultColumnWidth
         {
             get { return _sheet.DefaultColumnWidth; }
             set { _sheet.DefaultColumnWidth = value; }
@@ -1535,16 +1550,16 @@ namespace NPOI.HSSF.UserModel
                 // Nothing to do
                 return;
             }
-
-            NoteRecord[] noteRecs;
-            // Shift comments
+            // Move comments from the source row to the
+            //  destination row. Note that comments can
+            //  exist for cells which are null
+            // If the row shift would shift the comments off the sheet
+            // (above the first row or below the last row), this code will shift the
+            // comments to the first or last row, rather than moving them out of
+            // bounds or deleting them
             if (moveComments)
             {
-                noteRecs = _sheet.GetNoteRecords();
-            }
-            else
-            {
-                noteRecs = NoteRecord.EMPTY_ARRAY;
+                moveCommentsForRowShift(startRow, endRow, n);
             }
             RowShifter rowShifter = new HSSFRowShifter(this);
             // Shift Merged Regions
@@ -1552,21 +1567,7 @@ namespace NPOI.HSSF.UserModel
 
             // Shift Row Breaks
             _sheet.PageSettings.ShiftRowBreaks(startRow, endRow, n);
-
-            // Delete overwritten hyperlinks
-            int firstOverwrittenRow = startRow + n;
-            int lastOverwrittenRow = endRow + n;
-            foreach (HSSFHyperlink link in GetHyperlinkList())
-            {
-                // If hyperlink is fully contained in the rows that will be overwritten, delete the hyperlink
-                if (firstOverwrittenRow <= link.FirstRow &&
-                        link.FirstRow <= lastOverwrittenRow &&
-                        lastOverwrittenRow <= link.LastRow &&
-                        link.LastRow <= lastOverwrittenRow)
-                {
-                    RemoveHyperlink(link);
-                }
-            }
+            deleteOverwrittenHyperlinksForRowShift(startRow, endRow, n);
 
             for (int rowNum = s; rowNum >= startRow && rowNum <= endRow && rowNum >= 0 && rowNum < 65536; rowNum += inc)
             {
@@ -1624,32 +1625,42 @@ namespace NPOI.HSSF.UserModel
                 }
                 // Now zap all the cells in the source row
                 row.RemoveAllCells();
-
-                // Move comments from the source row to the
-                //  destination row. Note that comments can
-                //  exist for cells which are null
-                if (moveComments)
-                {
-                    // This code would get simpler if NoteRecords could be organised by HSSFRow.
-                    HSSFPatriarch patriarch = CreateDrawingPatriarch() as HSSFPatriarch;
-                    int lastChildIndex = patriarch.Children.Count - 1;
-                    for (int i = lastChildIndex; i >= 0; i--)
-                    {
-                        HSSFShape shape = patriarch.Children[(i)];
-                        if (!(shape is HSSFComment))
-                        {
-                            continue;
-                        }
-                        HSSFComment comment = (HSSFComment)shape;
-                        if (comment.Row != rowNum)
-                        {
-                            continue;
-                        }
-                        comment.Row = (rowNum + n);
-                    }
-                }
             }
             // Re-compute the first and last rows of the sheet as needed
+            recomputeFirstAndLastRowsForRowShift(startRow, endRow, n);
+
+            //if (endRow == lastrow || endRow + n > lastrow) lastrow = Math.Min(endRow + n, SpreadsheetVersion.EXCEL97.LastRowIndex);
+            //if (startRow == firstrow || startRow + n < firstrow) firstrow = Math.Max(startRow + n, 0);
+
+            int sheetIndex = _workbook.GetSheetIndex(this);
+            String sheetName = _workbook.GetSheetName(sheetIndex);
+            int externSheetIndex = book.CheckExternSheet(sheetIndex);
+            FormulaShifter formulaShifter = FormulaShifter.CreateForRowShift(externSheetIndex, sheetName, startRow, endRow, n, SpreadsheetVersion.EXCEL97);
+            // Update formulas that refer to rows that have been moved
+            updateFormulasForShift(formulaShifter);
+        }
+        private void updateFormulasForShift(FormulaShifter formulaShifter)
+        {
+            int sheetIndex = _workbook.GetSheetIndex(this);
+            int externSheetIndex = book.CheckExternSheet(sheetIndex);
+
+            _sheet.UpdateFormulasAfterCellShift(formulaShifter, externSheetIndex);
+
+            int nSheets = _workbook.NumberOfSheets;
+            for (int i = 0; i < nSheets; i++)
+            {
+                InternalSheet otherSheet = ((HSSFSheet)_workbook.GetSheetAt(i)).Sheet;
+                if (otherSheet == this._sheet)
+                {
+                    continue;
+                }
+                int otherExtSheetIx = book.CheckExternSheet(i);
+                otherSheet.UpdateFormulasAfterCellShift(formulaShifter, otherExtSheetIx);
+            }
+            _workbook.Workbook.UpdateNamesAfterCellShift(formulaShifter);
+        }
+        private void recomputeFirstAndLastRowsForRowShift(int startRow, int endRow, int n)
+        {
             if (n > 0)
             {
                 // Rows are moving down
@@ -1681,6 +1692,7 @@ namespace NPOI.HSSF.UserModel
                 if (endRow == lastrow)
                 {
                     // Need to walk backward to find the last non-blank row
+                    // NOTE: n is always negative here
                     lastrow = Math.Min(endRow + n, SpreadsheetVersion.EXCEL97.LastRowIndex);
                     for (int i = endRow - 1; i > endRow + n; i++)
                     {
@@ -1692,31 +1704,48 @@ namespace NPOI.HSSF.UserModel
                     }
                 }
             }
-            //if (endRow == lastrow || endRow + n > lastrow) lastrow = Math.Min(endRow + n, SpreadsheetVersion.EXCEL97.LastRowIndex);
-            //if (startRow == firstrow || startRow + n < firstrow) firstrow = Math.Max(startRow + n, 0);
-
-            // Update any formulas on this _sheet that point to
-            //  rows which have been moved
-            int sheetIndex = _workbook.GetSheetIndex(this);
-            String sheetName = _workbook.GetSheetName(sheetIndex);
-            int externSheetIndex = book.CheckExternSheet(sheetIndex);
-            FormulaShifter shifter = FormulaShifter.CreateForRowShift(externSheetIndex, sheetName, startRow, endRow, n, SpreadsheetVersion.EXCEL97);
-            _sheet.UpdateFormulasAfterCellShift(shifter, externSheetIndex);
-
-            int nSheets = _workbook.NumberOfSheets;
-            for (int i = 0; i < nSheets; i++)
+        }
+        private void deleteOverwrittenHyperlinksForRowShift(int startRow, int endRow, int n)
+        {
+            int firstOverwrittenRow = startRow + n;
+            int lastOverwrittenRow = endRow + n;
+            foreach (HSSFHyperlink link in GetHyperlinkList())
             {
-                InternalSheet otherSheet = ((HSSFSheet)_workbook.GetSheetAt(i)).Sheet;
-                if (otherSheet == this._sheet)
+                // If hyperlink is fully contained in the rows that will be overwritten, delete the hyperlink
+                if (firstOverwrittenRow <= link.FirstRow &&
+                        link.FirstRow <= lastOverwrittenRow &&
+                        lastOverwrittenRow <= link.LastRow &&
+                        link.LastRow <= lastOverwrittenRow)
+                {
+                    RemoveHyperlink(link);
+                }
+            }
+        }
+        private void moveCommentsForRowShift(int startRow, int endRow, int n)
+        {
+            HSSFPatriarch patriarch = CreateDrawingPatriarch() as HSSFPatriarch;
+            int lastChildIndex = patriarch.Children.Count - 1;
+            for (int i = lastChildIndex; i >= 0; i--)
+            {
+                HSSFShape shape = patriarch.Children[(i)];
+                if (!(shape is HSSFComment))
                 {
                     continue;
                 }
-                int otherExtSheetIx = book.CheckExternSheet(i);
-                otherSheet.UpdateFormulasAfterCellShift(shifter, otherExtSheetIx);
+                HSSFComment comment = (HSSFComment)shape;
+                int r = comment.Row;
+                if (startRow <= r && r <= endRow)
+                {
+                    comment.Row = clip(r + n);
+                }
             }
-            _workbook.Workbook.UpdateNamesAfterCellShift(shifter);
         }
-
+        private static int clip(int row)
+        {
+            return Math.Min(
+                    Math.Max(0, row),
+                    SpreadsheetVersion.EXCEL97.LastRowIndex);
+        }
         /// <summary>
         /// Inserts the chart records.
         /// </summary>
@@ -2324,6 +2353,54 @@ namespace NPOI.HSSF.UserModel
             }
         }
 
+        /**
+         * Adjusts the row height to fit the contents.
+         *
+         * This process can be relatively slow on large sheets, so this should
+         *  normally only be called once per row, at the end of your
+         *  Processing.
+         *
+         * @param row the row index
+         */
+        public void AutoSizeRow(int row)
+        {
+            AutoSizeRow(row, false);
+        }
+
+        /**
+         * Adjusts the row height to fit the contents.
+         * <p>
+         * This process can be relatively slow on large sheets, so this should
+         *  normally only be called once per row, at the end of your
+         *  Processing.
+         * </p>
+         * You can specify whether the content of merged cells should be considered or ignored.
+         *  Default is to ignore merged cells.
+         *
+         * @param row the row index
+         * @param useMergedCells whether to use the contents of merged cells when calculating the height of the row
+         */
+        public void AutoSizeRow(int row, bool useMergedCells)
+        {
+            var targetRow = GetRow(row) ?? CreateRow(row);
+
+            double height = SheetUtil.GetRowHeight(this, row, useMergedCells);
+
+            if (height != -1 && height != 0)
+            {
+                height *= 20;
+
+                int maxRowHeight = 409 * 20; // The maximum row height for an individual cell is 409 points
+
+                if (height > maxRowHeight)
+                {
+                    height = maxRowHeight;
+                }
+
+                targetRow.Height = (short)height;
+            }
+        }
+
         /// <summary>
         /// Checks if the provided region is part of the merged regions.
         /// </summary>
@@ -2375,9 +2452,10 @@ namespace NPOI.HSSF.UserModel
         /// </summary>
         /// <param name="font1">The font.</param>
         /// <returns></returns>
-        public System.Drawing.Font HSSFFont2Font(HSSFFont font1)
+        public Font HSSFFont2Font(HSSFFont font1)
         {
-            return new System.Drawing.Font(font1.FontName, (float)font1.FontHeightInPoints);
+            // TODO-Fonts: Fallback for missing font
+            return new Font(SystemFonts.Get(font1.FontName), (float)font1.FontHeightInPoints);
         }
 
         /// <summary>

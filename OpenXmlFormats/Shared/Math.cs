@@ -14,6 +14,8 @@ using System.IO;
 using System.Xml;
 using NPOI.OpenXml4Net.Util;
 using NPOI.OpenXmlFormats.Dml.WordProcessing;
+using System.ComponentModel;
+using EnumsNET;
 
 namespace NPOI.OpenXmlFormats.Shared
 {
@@ -405,8 +407,7 @@ namespace NPOI.OpenXmlFormats.Shared
         {
             sw.Write(string.Format("<m:{0}", nodeName));
             XmlHelper.WriteAttribute(sw, "m:val", this.val);
-            sw.Write(">");
-            sw.Write(string.Format("</m:{0}>", nodeName));
+            sw.Write("/>");
         }
 
         [XmlAttribute(Form = System.Xml.Schema.XmlSchemaForm.Qualified)]
@@ -446,8 +447,7 @@ namespace NPOI.OpenXmlFormats.Shared
         {
             sw.Write(string.Format("<m:{0}", nodeName));
             XmlHelper.WriteAttribute(sw, "m:val", this.val.ToString());
-            sw.Write(">");
-            sw.Write(string.Format("</m:{0}>", nodeName));
+            sw.Write("/>");
         }
 
         private ST_LimLoc valField;
@@ -718,7 +718,7 @@ namespace NPOI.OpenXmlFormats.Shared
         internal void Write(StreamWriter sw, string nodeName)
         {
             sw.Write(string.Format("<m:{0}", nodeName));
-            XmlHelper.WriteAttribute(sw, "m:val", XmlHelper.GetEnumValue(this.val));
+            XmlHelper.WriteAttribute(sw, "m:val", this.val.AsString(EnumFormat.Description));
             sw.Write("/>");
         }
 
@@ -756,15 +756,15 @@ namespace NPOI.OpenXmlFormats.Shared
     {
 
     
-        [XmlEnum("--")]
+        [Description("--")]
         Item,
 
     
-        [XmlEnum("-+")]
+        [Description("-+")]
         Item1,
 
     
-        [XmlEnum("+-")]
+        [Description("+-")]
         Item2,
     }
 

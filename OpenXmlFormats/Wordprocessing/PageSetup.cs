@@ -166,11 +166,11 @@ namespace NPOI.OpenXmlFormats.Wordprocessing
     public class CT_PageMar
     {
 
-        private string topField;
+        private ulong topField;
 
         private ulong rightField;
 
-        private string bottomField;
+        private ulong bottomField;
 
         private ulong leftField;
 
@@ -185,9 +185,9 @@ namespace NPOI.OpenXmlFormats.Wordprocessing
             if (node == null)
                 return null;
             CT_PageMar ctObj = new CT_PageMar();
-            ctObj.top = XmlHelper.ReadString(node.Attributes["w:top"]);
+            ctObj.top = XmlHelper.ReadULong(node.Attributes["w:top"]);
             ctObj.right = XmlHelper.ReadULong(node.Attributes["w:right"]);
-            ctObj.bottom = XmlHelper.ReadString(node.Attributes["w:bottom"]);
+            ctObj.bottom = XmlHelper.ReadULong(node.Attributes["w:bottom"]);
             ctObj.left = XmlHelper.ReadULong(node.Attributes["w:left"]);
             ctObj.header = XmlHelper.ReadULong(node.Attributes["w:header"]);
             ctObj.footer = XmlHelper.ReadULong(node.Attributes["w:footer"]);
@@ -211,7 +211,7 @@ namespace NPOI.OpenXmlFormats.Wordprocessing
         }
 
         [XmlAttribute(Form = System.Xml.Schema.XmlSchemaForm.Qualified, DataType = "integer")]
-        public string top
+        public ulong top
         {
             get
             {
@@ -237,7 +237,7 @@ namespace NPOI.OpenXmlFormats.Wordprocessing
         }
 
         [XmlAttribute(Form = System.Xml.Schema.XmlSchemaForm.Qualified, DataType = "integer")]
-        public string bottom
+        public ulong bottom
         {
             get
             {
@@ -330,7 +330,7 @@ namespace NPOI.OpenXmlFormats.Wordprocessing
             XmlHelper.WriteAttribute(sw, "w:first", this.first);
             XmlHelper.WriteAttribute(sw, "w:other", this.other);
             sw.Write(">");
-            sw.Write(string.Format("</w:{0}>", nodeName));
+            sw.WriteEndW(nodeName);
         }
 
         [XmlAttribute(Form = System.Xml.Schema.XmlSchemaForm.Qualified, DataType = "integer")]
@@ -437,7 +437,7 @@ namespace NPOI.OpenXmlFormats.Wordprocessing
                 this.bottom.Write(sw, "bottom");
             if (this.right != null)
                 this.right.Write(sw, "right");
-            sw.Write(string.Format("</w:{0}>", nodeName));
+            sw.WriteEndW(nodeName);
         }
 
 
@@ -765,7 +765,7 @@ namespace NPOI.OpenXmlFormats.Wordprocessing
             sw.Write(string.Format("<w:{0}", nodeName));
             XmlHelper.WriteAttribute(sw, "w:val", this.val.ToString());
             sw.Write(">");
-            sw.Write(string.Format("</w:{0}>", nodeName));
+            sw.WriteEndW(nodeName);
         }
 
         [XmlAttribute(Form = System.Xml.Schema.XmlSchemaForm.Qualified)]
@@ -857,7 +857,7 @@ namespace NPOI.OpenXmlFormats.Wordprocessing
             XmlHelper.WriteAttribute(sw, "w:distance", this.distance);
             XmlHelper.WriteAttribute(sw, "w:restart", this.restart.ToString());
             sw.Write(">");
-            sw.Write(string.Format("</w:{0}>", nodeName));
+            sw.WriteEndW(nodeName);
         }
 
         [XmlAttribute(Form = System.Xml.Schema.XmlSchemaForm.Qualified, DataType = "integer")]

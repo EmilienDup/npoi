@@ -16,7 +16,6 @@
 ==================================================================== */
 
 using System;
-using System.Drawing;
 using System.IO;
 using NPOI.OpenXml4Net.OPC;
 using NPOI.OpenXmlFormats.Dml;
@@ -26,6 +25,7 @@ using NPOI.SS.UserModel;
 using NPOI.Util;
 using System.Xml;
 using NPOI.SS.Util;
+using SixLabors.ImageSharp;
 
 namespace NPOI.XSSF.UserModel
 {
@@ -116,6 +116,29 @@ namespace NPOI.XSSF.UserModel
 
                 prototype = pic;
             return prototype;
+        }
+
+        /**
+         * Returns the picture id.
+         * @return id of the picture
+         */
+        public override uint ID {
+            get {
+                return ctPicture.nvPicPr.cNvPr.id;
+            }
+        }
+
+        /**
+         * Returns the picture name.
+         * @return name of the picture
+         */
+        public override String Name {
+            get {
+                return ctPicture.nvPicPr.cNvPr.name;
+            }
+            set {
+                ctPicture.nvPicPr.cNvPr.name = value;
+            }
         }
 
         /**

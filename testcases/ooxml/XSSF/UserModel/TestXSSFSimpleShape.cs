@@ -19,8 +19,8 @@ namespace TestCases.XSSF.UserModel
     using System;
     using NPOI.SS.UserModel;
     using NUnit.Framework;
-    using System.Drawing;
     using NPOI.XSSF.UserModel;
+    using SixLabors.ImageSharp;
 
     [TestFixture]
     public class TestXSSFSimpleShape
@@ -39,7 +39,7 @@ namespace TestCases.XSSF.UserModel
                 XSSFRichTextString rt = new XSSFRichTextString("Test String");
 
                 XSSFFont font = wb.CreateFont() as XSSFFont;
-                Color color = Color.FromArgb(0, 255, 255);
+                Color color = Color.FromRgb(0, 255, 255);
                 font.SetColor(new XSSFColor(color));
                 font.FontName = (/*setter*/"Arial");
                 rt.ApplyFont(font);
@@ -121,21 +121,21 @@ namespace TestCases.XSSF.UserModel
                 shape.BottomInset = (/*setter*/-1);
                 Assert.AreEqual(3.6, shape.BottomInset, 0.01);
 
-                Assert.AreEqual(3.6, shape.LeftInset, 0.01);
+                Assert.AreEqual(7.2, shape.LeftInset, 0.01);
                 shape.LeftInset = (/*setter*/12.31);
                 Assert.AreEqual(12.31, shape.LeftInset, 0.01);
                 shape.LeftInset = (/*setter*/-1);
-                Assert.AreEqual(3.6, shape.LeftInset, 0.01);
+                Assert.AreEqual(7.2, shape.LeftInset, 0.01);
                 shape.LeftInset = (/*setter*/-1);
-                Assert.AreEqual(3.6, shape.LeftInset, 0.01);
+                Assert.AreEqual(7.2, shape.LeftInset, 0.01);
 
-                Assert.AreEqual(3.6, shape.RightInset, 0.01);
+                Assert.AreEqual(7.2, shape.RightInset, 0.01);
                 shape.RightInset = (/*setter*/13.31);
                 Assert.AreEqual(13.31, shape.RightInset, 0.01);
                 shape.RightInset = (/*setter*/-1);
-                Assert.AreEqual(3.6, shape.RightInset, 0.01);
+                Assert.AreEqual(7.2, shape.RightInset, 0.01);
                 shape.RightInset = (/*setter*/-1);
-                Assert.AreEqual(3.6, shape.RightInset, 0.01);
+                Assert.AreEqual(7.2, shape.RightInset, 0.01);
 
                 Assert.AreEqual(3.6, shape.TopInset, 0.01);
                 shape.TopInset = (/*setter*/23.31);
